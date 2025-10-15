@@ -3,7 +3,7 @@ import pydeck as pdk
 import pandas as pd
 
 # Cargar datos
-df = pd.read_csv("data_zonas.csv")
+df = pd.read_csv("dataprueba.csv")
 
 # Eliminar espacios en nombres de columnas
 df.columns = df.columns.str.strip()

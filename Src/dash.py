@@ -1,14 +1,24 @@
+from pathlib import Path 
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
 import numpy as np
+import sys
 
 st.markdown("## 🌍 Diagnóstico ambiental inicial")
 st.title("URBANSENSE")
 st.write("Visualización y simulacion del Índice de Actividad Ciudadana (IAC)")
 
 #Cargar datos
-df = pd.read_csv("data_zonas.csv")
+base = Path(__file__).resolve().parent.parent
+csv_path = base /"data" / "dataprueba.csv"
+
+print("resolved csv path:", csv_path)
+if not csv_path.exists():
+    print("file does not exist:", csv_path)
+    sys.exit(1)
+
+df = pd.read_csv(csv_path)
 
 #Asignar coordenadas (ejemplo)
 df["lat"] = [19.845, 19.850, 19.853]
