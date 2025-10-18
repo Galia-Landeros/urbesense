@@ -1,53 +1,51 @@
-
-# ...existing code...
 import pandas as pd
-from pathlib import Path
-from .config import EXPECTED_COLUMNS
 
-def load_dataset(path):
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"CSV no encontrado: {path}")
+EXPECTED = ["zona_id","nombre","lat","lon","iac","ruido","co2","temperatura","fecha","hora"]
 
-    df = pd.read_csv(path)
+RENAME_MAP = {
+    "zona": "nombre",
+    "latitude": "lat",
+    "latitud": "lat",
+    "longitude": "lon",
+    "longitud": "lon",
+    "index_actividad": "iac",
+    "indice_actividad": "iac",
+}
 
-    # Allow EXPECTED_COLUMNS to be a comma-separated string or a list
-    if isinstance(EXPECTED_COLUMNS, str):
-        expected = [c.strip() for c in EXPECTED_COLUMNS.split(",")]
-    else:
-        expected = list(EXPECTED_COLUMNS)
-
-    # Common aliases mapping from provided CSV to expected names
-    aliases = {
-        "zona": "nombre",
-        "zona_id": "zona_id",
-        "movimiento": "iac",
-        "iac": "iac",
-        "co2": "co2",
-        "ruido": "ruido",
-        "temperatura": "temperatura",
-    }
-
-    # Apply alias mapping when possible
-    for src_col, target_col in aliases.items():
-        if src_col in df.columns and target_col not in df.columns:
-            df[target_col] = df[src_col]
-
-    # Check missing columns
-    missing = [c for c in expected if c not in df.columns]
-    if missing:
-        # Fill common missing columns with safe defaults so UI can run.
-        # Adjust behavior here if you prefer to raise instead.
-        for c in missing:
-            if c in ("lat", "lon"):
-                df[c] = 0.0
-            elif c in ("fecha",):
-                df[c] = pd.to_datetime("1970-01-01")
-            elif c in ("hora",):
-                df[c] = "00:00"
-            else:
-                df[c] = pd.NA
-        print(f"WARNING: columnas faltantes rellenadas con valores por defecto: {missing}")
-
+def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    # Limpia encabezados
+    cols = (df.columns
+              .str.strip()
+              .str.lower()
+              .str.replace("\ufeff", "", regex=False))
+    df.columns = cols
+    df = df.rename(columns=RENAME_MAP)
     return df
-# ...existing code...
+
+def load_dataset(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, encoding="utf-8", dtype=str)
+    df = _normalize_columns(df)
+
+    # Convierte tipos
+    to_float = ["lat","lon","iac","ruido","co2","temperatura"]
+    for c in to_float:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    if "fecha" in df.columns:
+        df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+
+    if "hora" in df.columns:
+        df["hora"] = df["hora"].astype(str).str.strip()
+
+    # Validación de columnas esenciales
+    required = ["lat","lon","iac","nombre"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(
+            f"Faltan columnas requeridas en el CSV: {missing}. "
+            f"Columnas detectadas: {list(df.columns)}"
+        )
+
+    df = df.dropna(subset=["lat","lon"])
+    return df
