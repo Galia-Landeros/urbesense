@@ -1,3 +1,5 @@
-zona_id, nombre, iac, ruido, co2, temperatura, fecha, hora, lat, lon
-1, Zona Centro, 80, 55, 420, 28, 2025-10-15, 10:00, 19.845, -90.532
-2, Col. San José, 30, 40, 390, 29, 2025-10-15, 10:00, 19.842, -90.540
+zona_id,nombre,lat,lon,iac,ruido,co2,temperatura,fecha,hora
+Z001,Centro,19.845,-90.536,75,62,520,30,2025-10-15,12:00
+Z002,Col. A,19.830,-90.520,35,58,610,31,2025-10-15,12:00
+Z003,Parque B,19.860,-90.550,55,49,480,29,2025-10-15,12:00
+
