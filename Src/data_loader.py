@@ -1,51 +1,148 @@
+# src/data_loader.py
 import pandas as pd
 
-EXPECTED = ["zona_id","nombre","lat","lon","iac","ruido","co2","temperatura","fecha","hora"]
-
+# === MAPEO Y LÍMITES ===
 RENAME_MAP = {
     "zona": "nombre",
+    "CO2": "co2",
+    "IAC": "iac",
+    "nivel de impacto": "nivel_impacto",
     "latitude": "lat",
     "latitud": "lat",
     "longitude": "lon",
     "longitud": "lon",
-    "index_actividad": "iac",
-    "indice_actividad": "iac",
 }
 
+LIMITES = {
+    "co2": (20, 60),
+    "ruido": (30, 70),
+    "iac": (0.2, 1.0),
+    "temperatura": (15, 35),
+    "seguridad": (0.2, 1.0),
+    "impacto": (0, 100),
+}
+
+# === FUNCIONES DE APOYO ===
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    # Limpia encabezados
-    cols = (df.columns
-              .str.strip()
-              .str.lower()
-              .str.replace("\ufeff", "", regex=False))
+    """Limpia encabezados y renombra columnas."""
+    cols = (
+        df.columns.str.strip()
+        .str.lower()
+        .str.replace("\ufeff", "", regex=False)
+    )
     df.columns = cols
     df = df.rename(columns=RENAME_MAP)
     return df
 
+def _clasificar_impacto(valor: float) -> str:
+    if pd.isna(valor): return "Desconocido"
+    if valor < 20:   return "Muy bajo"
+    if valor < 40:   return "Bajo"
+    if valor < 60:   return "Moderado"
+    if valor < 80:   return "Alto"
+    return "Muy alto"
+
+# === FUNCIÓN PRINCIPAL ===
 def load_dataset(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, encoding="utf-8", dtype=str)
+    """Carga, limpia y valida el dataset principal de UrbeSense."""
+    # 1) Leer y normalizar encabezados
+    df = pd.read_csv(path, encoding="utf-8")
     df = _normalize_columns(df)
 
-    # Convierte tipos
-    to_float = ["lat","lon","iac","ruido","co2","temperatura"]
-    for c in to_float:
+    #DIAGNOSTICO 1
+    df = pd.read_csv(path, encoding="utf-8")
+    raw_shape = df.shape
+    df = _normalize_columns(df)
+    print(f"[DL] RAW shape: {raw_shape} | After normalize: {df.shape} | Columns: {list(df.columns)}")
+
+
+    # 2) Conversión de tipos numéricos
+    num_cols = ["co2", "ruido", "iac", "temperatura", "seguridad", "impacto", "lat", "lon"]
+    for c in num_cols:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
-    if "fecha" in df.columns:
-        df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+    # 3) *** Compatibilidad + límites adaptativos ***
+    # 3.1) Normaliza IAC si venía en porcentaje (0–100) a 0–1
+    if "iac" in df.columns:
+        try:
+            if pd.to_numeric(df["iac"], errors="coerce").max(skipna=True) > 1.0:
+                df["iac"] = df["iac"] / 100.0
+        except Exception:
+            pass
 
-    if "hora" in df.columns:
-        df["hora"] = df["hora"].astype(str).str.strip()
+    # 3.2) Construye límites locales a partir de LIMITES
+    local_limits = LIMITES.copy()
 
-    # Validación de columnas esenciales
-    required = ["lat","lon","iac","nombre"]
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise ValueError(
-            f"Faltan columnas requeridas en el CSV: {missing}. "
-            f"Columnas detectadas: {list(df.columns)}"
-        )
+    # 3.3) Ajuste ADAPTATIVO para CO2:
+    #      - Si el máximo de CO2 > 100, asumimos ppm ambientales: relajamos SOLO el tope superior,
+    #        pero NO subimos el inferior (así no se descartan filas 20–60).
+    if "co2" in df.columns:
+        co2_num = pd.to_numeric(df["co2"], errors="coerce")
+        co2_max = co2_num.max(skipna=True)
+        if pd.notna(co2_max) and co2_max > 100:
+            local_limits["co2"] = (20, 5000)
+    
+    #DIAGNOSTICO 2
+    print(f"[DL] After to_numeric: {df.shape}")
+    #DIAGNOSTICO 3
+    print(f"[DL] Before drops: {df.shape} | nombre nulls: {df['nombre'].isna().sum() if 'nombre' in df.columns else 'NO nombre col'}")
 
+    # 4) Limpieza básica
+    df = df.drop_duplicates()
+    df = df.dropna(subset=["nombre"])
+    #DIAGNOSTICO 4
+    print(f"[DL] After drops: {df.shape}")
+
+
+
+    # 5) Cálculo de impacto si no está
+    if "impacto" not in df.columns and {"iac", "seguridad"}.issubset(df.columns):
+        df["impacto"] = (1 - ((df["iac"] + df["seguridad"]) / 2)) * 100
+
+    # 6) Clasificación de nivel_impacto si no está
+    if "nivel_impacto" not in df.columns and "impacto" in df.columns:
+        df["nivel_impacto"] = df["impacto"].apply(_clasificar_impacto)
+    
+    #DIAGNOSTICO 5
+    print(f"[DL] Before limits: {df.shape}")
+    for col,(mn,mx) in local_limits.items():
+     if col in df.columns:
+        bad = (~df[col].between(mn, mx)).sum()
+        if bad:
+            print(f"[DL]  -> {col}: {bad} fuera de [{mn}, {mx}] (ejemplo: {df.loc[~df[col].between(mn,mx), [col,'nombre']].head(3).to_dict(orient='records')})")
+    
+
+    # 7) Validación de límites numéricos (usa local_limits)
+    for col, (mn, mx) in local_limits.items():
+        if col in df.columns:
+            df = df[(df[col] >= mn) & (df[col] <= mx)]
+    
+    #DIAGNOSTICO 6
+    print(f"[DL] After limits: {df.shape}")
+    #DIAGNOSTICO 7
+    if {"lat","lon"}.issubset(df.columns):
+     print(f"[DL] Before coord filter: {df.shape} | lat nulls: {df['lat'].isna().sum()} | lon nulls: {df['lon'].isna().sum()}")
     df = df.dropna(subset=["lat","lon"])
-    return df
+    df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
+    print(f"[DL] After coord filter: {df.shape}")
+
+    # 8) Validación de coordenadas
+    if {"lat", "lon"}.issubset(df.columns):
+        df = df.dropna(subset=["lat", "lon"])
+        df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
+    
+    #DIAGNOSTICO 8
+    if {"lat","lon"}.issubset(df.columns):
+     print(f"[DL] Before coord filter: {df.shape} | lat nulls: {df['lat'].isna().sum()} | lon nulls: {df['lon'].isna().sum()}")
+    df = df.dropna(subset=["lat","lon"])
+    df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
+    print(f"[DL] After coord filter: {df.shape}") 
+
+    # 9) Orden recomendado
+    order = ["nombre", "iac", "seguridad", "impacto", "nivel_impacto",
+             "co2", "ruido", "temperatura", "lat", "lon"]
+    df = df[[c for c in order if c in df.columns] + [c for c in df.columns if c not in order]]
+
+    return df.reset_index(drop=True)
+

@@ -1,6 +1,8 @@
-zona,CO2,ruido,IAC,temperatura,seguridad,impacto,nivel de impacto
-Zona 1,54,32,0.74,33,0.69,28.5,Bajo
-Zona 2,26,54,0.89,34,0.55,28.0,Bajo
-Zona 3,22,43,0.79,22,0.87,17.0,Muy bajo
-Zona 4,55,67,0.22,20,0.4,69.0,Alto
-Zona 5,41,31,0.53,29,0.25,61.0,Alto
+zona,CO2,ruido,IAC,temperatura,seguridad,impacto,nivel de impacto,lat,lon
+Zona 1,54,32,0.74,33,0.69,28.5,Bajo,19.845,-90.536
+Zona 2,26,54,0.89,34,0.55,28.0,Bajo,19.830,-90.520
+Zona 3,22,43,0.79,22,0.87,17.0,Muy bajo,19.860,-90.550
+Zona 4,55,67,0.22,20,0.40,69.0,Alto,19.870,-90.510
+Zona 5,41,31,0.53,29,0.25,61.0,Alto,19.840,-90.545
+
+

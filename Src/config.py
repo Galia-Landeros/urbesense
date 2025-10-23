@@ -4,11 +4,11 @@ from pathlib import Path
 # Rutas base
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
-DEFAULT_CSV = DATA_DIR / "data_zonas.csv"
+DEFAULT_CSV = DATA_DIR / "dataset.csv"
 
 # Esquema esperado del CSV
 EXPECTED_COLUMNS = [
-    "zona_id, nombre, iac, ruido, co2, temperatura, fecha, hora, lat, lon"
+    "zona,CO2,ruido,IAC,temperatura,seguridad,impacto,nivel de impacto,lat,lon"
 ]
 
 # Clasificación IAC para color 

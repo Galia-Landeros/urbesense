@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-
 # Asegurar que el root del proyecto esté en sys.path
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
@@ -16,44 +15,73 @@ import numpy as np
 import altair as alt
 
 # Backend imports
+# Backend imports
 from src.config import DEFAULT_CSV
 from src.data_loader import load_dataset
-from src.plot_layer import build_map_plotly
 from src.utils import file_signature
+from src.plot_layer import build_map_plotly
 
-def file_signature(path: str | Path):
-    p = Path(path)
-    if not p.exists():
-        return None
-    s = p.stat()
-    return (int(s.st_mtime), int(s.st_size))  # cambia si guardas el CSV
+#la primera llamada es set_page_config
+st.set_page_config(page_title="Urbesense", layout="wide")
 
-
-# Botón manual de refresco 
-if st.sidebar.button("🔄 Actualizar datos"):
-    st.cache_data.clear()
-
- # FUNCIÓN CACHED que DEPENDE de la firma del archivo
-@st.cache_data
-def get_data(csv_path: str, sig):
-    # 'sig' solo sirve para invalidar cache, no lo uses adentro.
-    return load_dataset(csv_path)
-
-#DEFINE LA RUTA Y LA FIRMA ANTES DE LLAMAR get_data
-csv_path = str(DEFAULT_CSV)
-sig = file_signature(csv_path)
-#CARGA EL DATAFRAME
-df = get_data(csv_path, sig)
-
-# utilidades opcionales que sugerimos el miércoles
 def _coerce_numeric(df, cols):
+    """Convierte columnas a numéricas sin romper el dataframe."""
     d = df.copy()
     for c in cols:
         if c in d.columns:
             d[c] = pd.to_numeric(d[c], errors="coerce")
     return d
 
-st.set_page_config(page_title="Urbesense", layout="wide")
+# Botón manual de refresco 
+if st.sidebar.button("🔄 Actualizar datos"):
+    st.cache_data.clear()
+
+# FUNCIÓN CACHED que DEPENDE de la firma del archivo
+@st.cache_data
+def get_data(csv_path: str, sig):
+    # 'sig' solo sirve para invalidar cache, no lo uses adentro.
+    return load_dataset(csv_path)
+
+# DEFINE LA RUTA Y LA FIRMA ANTES DE LLAMAR get_data
+csv_path = str(DEFAULT_CSV)
+sig = file_signature(csv_path)
+
+# CARGA EL DATAFRAME (AHORA SÍ EXISTE df)
+df = get_data(csv_path, sig)
+
+# ============= BLOQUE DIAGNÓSTICO (después de cargar df) =============
+st.write("Shape tras loader:", df.shape)
+
+# ¿Cuántas filas tienen coordenadas válidas?
+if {"lat","lon"}.issubset(df.columns):
+    has_coords = df[["lat","lon"]].notna().all(axis=1)
+    st.write("Con lat/lon válidos:", int(has_coords.sum()))
+else:
+    st.write("El dataset no trae lat/lon.")
+
+# Revisa límites que podrían estar filtrando
+LIMITES_DEBUG = {
+    "co2": (20, 5000),     # mismo criterio adaptativo
+    "ruido": (30, 70),
+    "iac": (0.2, 1.0),
+    "temperatura": (15, 35),
+    "seguridad": (0.2, 1.0),
+    "impacto": (0, 100),
+}
+fuera = []
+for col, (mn, mx) in LIMITES_DEBUG.items():
+    if col in df.columns:
+        mask = ~(df[col].between(mn, mx))
+        if mask.any():
+            fuera.append((col, int(mask.sum()), df.loc[mask, ["nombre", col]].head(10)))
+st.write("Valores fuera de rango (muestra):", [(c, n) for c, n, _ in fuera])
+for c, n, ej in fuera:
+    st.write(f"Ejemplos fuera de {c}:", ej)
+
+# ¿Qué filas van al mapa?
+cols_preview = [c for c in ["nombre","lat","lon","iac","co2","ruido","temperatura","seguridad","impacto","nivel_impacto"] if c in df.columns]
+st.write("Primeras filas que van al mapa:", df[cols_preview].head())
+# =====================================================================
 
 # =================== ESTILOS UI (CSS tal cual) ===================
 st.markdown("""
