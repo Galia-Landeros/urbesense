@@ -11,11 +11,11 @@ EXPECTED_COLUMNS = [
     "zona_id, nombre, iac, ruido, co2, temperatura, fecha, hora, lat, lon"
 ]
 
-# Clasificación IAC para color (Plotly)
+# Clasificación IAC para color 
 IAC_THRESHOLDS = {"high": 70, "mid": 40}  # <40 bajo, 40-69 medio, >=70 alto
 
-# Estilo Plotly (se puede ajustar el martes)
+# Estilo Plotly 
 PLOTLY_TEMPLATE = "plotly_white"
 
-# (Opcional) MAPBOX TOKEN si vas a usar mapbox en scattermapbox (martes)
-MAPBOX_TOKEN = None  # reemplazar mañana si hace falta
+#  MAPBOX TOKEN 
+MAPBOX_TOKEN = None  #reemplazar mañana si hace falta

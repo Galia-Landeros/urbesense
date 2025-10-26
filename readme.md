@@ -30,3 +30,12 @@ CSV (data/urbansense_sample.csv)
         |
         v
         UI (Streamlit)  --> st.plotly_chart(fig)
+
+4. Dashboard inicial en Streamlit con dataset CSV y mapa en Plotly.
+
+## Estructura
+- `main.py`: UI base (tabs).
+- `src/data_loader.py`: carga y validación de CSV.
+- `src/plot_layer.py`: construcción de figura Plotly para mapa.
+- `src/config.py`: rutas, columnas esperadas, umbrales IAC.
+- `data/data_zonas.csv`: datos de ejemplo.

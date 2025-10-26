@@ -3,36 +3,40 @@ import pandas as pd
 import numpy as np
 import altair as alt
 
-# --------------------------
-# CONFIGURACIÓN GENERAL
-# --------------------------
-st.set_page_config(page_title="Dashboard Urbano", layout="wide")
+st.set_page_config(page_title="Urbesense", layout="wide")
 
-# --------------------------
-# ESTILOS PERSONALIZADOS (HTML + CSS)
-# --------------------------
 st.markdown("""
 <style>
-    /* Fondo general */
+    
+    [data-testid="stHeader"] {
+        display: none;
+    }
+    
+    .main {
+        padding-top: 0px !important;
+    }
+    
+    .block-container {
+        padding-top: 1rem;
+    }
+    
     body {
         background-color: #F8F9FA;
     }
 
-    /* Contenedor principal */
     .main-container {
         display: flex;
         flex-direction: row;
     }
 
-    /* Barra lateral personalizada */
     .sidebar {
         background-color: #ffffff;
         width: 80px;
-        height: 100vh; /* altura completa de la ventana */
+        height: 100vh;
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding-top: 40px; /* bajamos los iconos un poco más */
+        padding-top: 40px;
         box-shadow: 2px 0 8px rgba(0,0,0,0.05);
         position: fixed;
         left: 0;
@@ -54,25 +58,30 @@ st.markdown("""
         transform: scale(1.1);
     }
 
-    /* Contenido del dashboard */
     .content {
         margin-left: 100px;
         padding: 20px;
         width: calc(100% - 100px);
     }
 
-    /* Header */
     .header {
         display: flex;
-        justify-content: space-between;
+        justify-content: space-between; 
         align-items: center;
         padding-bottom: 20px;
+        width: 100%;
+    }
+
+    .title-wrapper {
+        flex-grow: 1;
+        text-align: center;
+        padding-left: 320px;
     }
 
     .title {
-        font-size: 28px;
-        font-weight: 700;
-        color: #1f2937;
+        font-size: 62px;
+        font-weight: 700; 
+        color: #005B96;
     }
 
     .buttons button {
@@ -83,14 +92,14 @@ st.markdown("""
         border-radius: 8px;
         font-weight: 600;
         margin-right: 10px;
+        transition: background-color 0.3s ease;
     }
 
     .buttons button:hover {
-        background-color: #d1d5db;
+        background-color: #FFA500;
         cursor: pointer;
     }
 
-    /* Tarjetas de métricas */
     .metric-card {
         background-color: white;
         padding: 20px;
@@ -112,28 +121,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --------------------------
-# MENÚ LATERAL PERSONALIZADO (ICONOS)
-# --------------------------
 st.markdown("""
 <div class="sidebar">
-    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" title="Dashboard" />
-    <img src="https://cdn-icons-png.flaticon.com/512/1041/1041916.png" title="Zonas" />
-    <img src="https://cdn-icons-png.flaticon.com/512/1170/1170576.png" title="Mapas" />
-    <img src="https://cdn-icons-png.flaticon.com/512/2099/2099058.png" title="Causas" />
-    <img src="https://cdn-icons-png.flaticon.com/512/2099/2099199.png" title="Configuración" />
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSHVo0hD_bA9XSw-pQrc7p-99aSWJGYHxcQTQ&usqp=CAU" title="Gataso" />
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSHVo0hD_bA9XSw-pQrc7p-99aSWJGYHxcQTQ&usqp=CAU" title="Zonas" />
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSHVo0hD_bA9XSw-pQrc7p-99aSWJGYHxcQTQ&usqp=CAU" title="Mapas" />
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSHVo0hD_bA9XSw-pQrc7p-99aSWJGYHxcQTQ&usqp=CAU" title="Causas" />
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSHVo0hD_bA9XSw-pQrc7p-99aSWJGYHxcQTQ&usqp=CAU" title="Configuración" />
 </div>
 """, unsafe_allow_html=True)
 
-# --------------------------
-# CONTENIDO PRINCIPAL
-# --------------------------
 st.markdown('<div class="content">', unsafe_allow_html=True)
 
-# Encabezado
 st.markdown("""
 <div class="header">
-    <div class="title">🏙 Dashboard Urbano</div>
+    <div class="title-wrapper">
+        <div class="title">Urbesense</div>
+    </div>
     <div class="buttons">
         <button>Zonas</button>
         <button>Causas</button>
@@ -142,9 +146,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --------------------------
-# TARJETAS DE MÉTRICAS
-# --------------------------
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -156,9 +157,6 @@ with col3:
 with col4:
     st.markdown('<div class="metric-card"><div class="metric-label">Simulaciones</div><div class="metric-value">42</div></div>', unsafe_allow_html=True)
 
-# --------------------------
-# PRIMERA FILA DE GRÁFICOS
-# --------------------------
 st.write("")
 col1, col2 = st.columns(2)
 
@@ -180,9 +178,6 @@ with col2:
     ).properties(height=300)
     st.altair_chart(chart, use_container_width=True)
 
-# --------------------------
-# SEGUNDA FILA DE GRÁFICOS
-# --------------------------
 st.write("")
 col3, col4 = st.columns(2)
 
@@ -208,4 +203,3 @@ with col4:
     st.altair_chart(pie, use_container_width=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
-#prueba 1

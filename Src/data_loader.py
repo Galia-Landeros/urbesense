@@ -48,4 +48,8 @@ def load_dataset(path: str) -> pd.DataFrame:
         )
 
     df = df.dropna(subset=["lat","lon"])
+<<<<<<< HEAD
     return df
+=======
+    return df
+>>>>>>> 222f61efc4ee689fb8f343b4bb1a09687a22e75f

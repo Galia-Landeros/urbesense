@@ -1,8 +1,12 @@
+# ...existing code...
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parent))
 
-"""UI base (Streamlit) para Semana 1 - Lunes."""
+# ensure project root is importable
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 try:
     import streamlit as st
 except Exception:
@@ -24,10 +28,14 @@ def run_app():
     tab_mapa, tab_about = st.tabs(["Mapa", "Acerca de"])
 
     with tab_mapa:
-        st.subheader("Mapa (Plotly) — placeholder Lunes")
+        st.subheader("Mapa (Plotly)")
+        st.caption("Si no ves puntos, revisa que lat/lon sean numéricos y el CSV tenga datos.")
+        st.write("CSV cargado desde:", DEFAULT_CSV)
+
         df = load_dataset(str(DEFAULT_CSV))
+        st.dataframe(df.head())  # diagnóstico visual
+
         fig = build_map_plotly(df)
-        # Si aún no hay Plotly instalado, el stub devuelve un dict
         if isinstance(fig, dict) and fig.get("placeholder"):
             st.info(fig["message"])
             st.json({"puntos": fig["n_points"]})
@@ -40,5 +48,6 @@ def run_app():
         Mañana se instalan librerías y se activa el mapa Plotly real.
         """)
 
-if __name__ == "__main2__":
+if __name__ == "__main__":
     run_app()
+
