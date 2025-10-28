@@ -15,11 +15,10 @@ import numpy as np
 import altair as alt
 
 # Backend imports
-# Backend imports
 from src.config import DEFAULT_CSV
 from src.data_loader import load_dataset
 from src.utils import file_signature
-from src.plot_layer import build_map_plotly
+from src.plot_layer import build_map_plotly, bubble_map_iac_mapbox  # ⬅️ agregado bubble_map_iac_mapbox
 
 #la primera llamada es set_page_config
 st.set_page_config(page_title="Urbesense", layout="wide")
@@ -48,8 +47,6 @@ sig = file_signature(csv_path)
 
 # CARGA EL DATAFRAME (AHORA SÍ EXISTE df)
 df = get_data(csv_path, sig)
-
-# ============= BLOQUE DIAGNÓSTICO (después de cargar df) =============
 st.write("Shape tras loader:", df.shape)
 
 # ¿Cuántas filas tienen coordenadas válidas?
@@ -179,11 +176,31 @@ with c4:
 st.write("")
 col1, col2 = st.columns(2)
 
-# =================== MAPA (Plotly desde tu backend) ===================
+# =================== MAPA (Bubble Map IAC) ===================
 with col1:
-    st.markdown("### Actividad por Zona")
+    st.markdown("### Actividad por Zona (Bubble Map IAC)")
     if len(df):
-        fig = build_map_plotly(df)  # usa src/plot_layer.py (scattermapbox con OSM)
+        # Escalar IAC a 0–100 si viene en 0–1
+        df_bubble = df.copy()
+        if "iac" in df_bubble.columns:
+            try:
+                iac_max = float(pd.to_numeric(df_bubble["iac"], errors="coerce").max())
+                if iac_max <= 1.5:  # típico caso de IAC en [0,1]
+                    df_bubble["iac"] = pd.to_numeric(df_bubble["iac"], errors="coerce") * 100.0
+            except Exception:
+                pass
+
+        # Centro sugerido (promedio de lat/lon); el componente calcula fallback si None
+        center = None
+        if {"lat","lon"}.issubset(df_bubble.columns) and df_bubble[["lat","lon"]].notna().any().all():
+            center = {"lat": float(df_bubble["lat"].mean()), "lon": float(df_bubble["lon"].mean())}
+
+        fig = bubble_map_iac_mapbox(
+            df_bubble,
+            zoom=12.0,
+            center=center,
+            range_size=(10, 36),
+        )
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No hay datos para mostrar en el mapa.")

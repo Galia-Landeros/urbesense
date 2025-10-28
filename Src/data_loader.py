@@ -49,12 +49,6 @@ def load_dataset(path: str) -> pd.DataFrame:
     df = pd.read_csv(path, encoding="utf-8")
     df = _normalize_columns(df)
 
-    #DIAGNOSTICO 1
-    df = pd.read_csv(path, encoding="utf-8")
-    raw_shape = df.shape
-    df = _normalize_columns(df)
-    print(f"[DL] RAW shape: {raw_shape} | After normalize: {df.shape} | Columns: {list(df.columns)}")
-
 
     # 2) Conversión de tipos numéricos
     num_cols = ["co2", "ruido", "iac", "temperatura", "seguridad", "impacto", "lat", "lon"]
@@ -83,18 +77,11 @@ def load_dataset(path: str) -> pd.DataFrame:
         if pd.notna(co2_max) and co2_max > 100:
             local_limits["co2"] = (20, 5000)
     
-    #DIAGNOSTICO 2
-    print(f"[DL] After to_numeric: {df.shape}")
-    #DIAGNOSTICO 3
-    print(f"[DL] Before drops: {df.shape} | nombre nulls: {df['nombre'].isna().sum() if 'nombre' in df.columns else 'NO nombre col'}")
-
     # 4) Limpieza básica
     df = df.drop_duplicates()
     df = df.dropna(subset=["nombre"])
     #DIAGNOSTICO 4
     print(f"[DL] After drops: {df.shape}")
-
-
 
     # 5) Cálculo de impacto si no está
     if "impacto" not in df.columns and {"iac", "seguridad"}.issubset(df.columns):
@@ -104,40 +91,19 @@ def load_dataset(path: str) -> pd.DataFrame:
     if "nivel_impacto" not in df.columns and "impacto" in df.columns:
         df["nivel_impacto"] = df["impacto"].apply(_clasificar_impacto)
     
-    #DIAGNOSTICO 5
-    print(f"[DL] Before limits: {df.shape}")
-    for col,(mn,mx) in local_limits.items():
-     if col in df.columns:
-        bad = (~df[col].between(mn, mx)).sum()
-        if bad:
-            print(f"[DL]  -> {col}: {bad} fuera de [{mn}, {mx}] (ejemplo: {df.loc[~df[col].between(mn,mx), [col,'nombre']].head(3).to_dict(orient='records')})")
-    
 
     # 7) Validación de límites numéricos (usa local_limits)
     for col, (mn, mx) in local_limits.items():
         if col in df.columns:
             df = df[(df[col] >= mn) & (df[col] <= mx)]
     
-    #DIAGNOSTICO 6
-    print(f"[DL] After limits: {df.shape}")
-    #DIAGNOSTICO 7
-    if {"lat","lon"}.issubset(df.columns):
-     print(f"[DL] Before coord filter: {df.shape} | lat nulls: {df['lat'].isna().sum()} | lon nulls: {df['lon'].isna().sum()}")
-    df = df.dropna(subset=["lat","lon"])
-    df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
-    print(f"[DL] After coord filter: {df.shape}")
+
 
     # 8) Validación de coordenadas
     if {"lat", "lon"}.issubset(df.columns):
         df = df.dropna(subset=["lat", "lon"])
         df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
-    
-    #DIAGNOSTICO 8
-    if {"lat","lon"}.issubset(df.columns):
-     print(f"[DL] Before coord filter: {df.shape} | lat nulls: {df['lat'].isna().sum()} | lon nulls: {df['lon'].isna().sum()}")
-    df = df.dropna(subset=["lat","lon"])
-    df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
-    print(f"[DL] After coord filter: {df.shape}") 
+     
 
     # 9) Orden recomendado
     order = ["nombre", "iac", "seguridad", "impacto", "nivel_impacto",
