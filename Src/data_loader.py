@@ -1,55 +1,28 @@
+# src/data_loader.py
+from pathlib import Path
 import pandas as pd
 
-EXPECTED = ["zona_id","nombre","lat","lon","iac","ruido","co2","temperatura","fecha","hora"]
+REQUIRED = ["zona_id","nombre","lat","lon","co2","ruido","temperatura","seguridad"]
 
-RENAME_MAP = {
-    "zona": "nombre",
-    "latitude": "lat",
-    "latitud": "lat",
-    "longitude": "lon",
-    "longitud": "lon",
-    "index_actividad": "iac",
-    "indice_actividad": "iac",
-}
+def load_zonas_csv(csv_path: str | Path = "data/zonas.csv") -> pd.DataFrame:
+    p = Path(csv_path)
+    df = pd.read_csv(p)
+    df.columns = [c.strip().lower() for c in df.columns]
 
-def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    # Limpia encabezados
-    cols = (df.columns
-              .str.strip()
-              .str.lower()
-              .str.replace("\ufeff", "", regex=False))
-    df.columns = cols
-    df = df.rename(columns=RENAME_MAP)
-    return df
-
-def load_dataset(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, encoding="utf-8", dtype=str)
-    df = _normalize_columns(df)
-
-    # Convierte tipos
-    to_float = ["lat","lon","iac","ruido","co2","temperatura"]
-    for c in to_float:
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-
-    if "fecha" in df.columns:
-        df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
-
-    if "hora" in df.columns:
-        df["hora"] = df["hora"].astype(str).str.strip()
-
-    # Validación de columnas esenciales
-    required = ["lat","lon","iac","nombre"]
-    missing = [c for c in required if c not in df.columns]
+    missing = [c for c in REQUIRED if c not in df.columns]
     if missing:
-        raise ValueError(
-            f"Faltan columnas requeridas en el CSV: {missing}. "
-            f"Columnas detectadas: {list(df.columns)}"
-        )
+        raise ValueError(f"CSV incompleto, faltan: {missing}")
 
-    df = df.dropna(subset=["lat","lon"])
-<<<<<<< HEAD
-    return df
-=======
-    return df
->>>>>>> 222f61efc4ee689fb8f343b4bb1a09687a22e75f
+    # tipos seguros
+    for c in ["lat","lon","co2","ruido","temperatura","seguridad"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.dropna(subset=["lat","lon","co2","ruido","temperatura","seguridad"]).copy()
+
+    # (opcional) si quieres limitar a 10 más cercanas al centro de Campeche
+    # from src.config import CENTER
+    # lat0, lon0 = CENTER["lat"], CENTER["lon"]
+    # df["d2"] = (df["lat"]-lat0)**2 + (df["lon"]-lon0)**2
+    # df = df.sort_values("d2").head(10).drop(columns="d2")
+
+    return df.reset_index(drop=True)
+
