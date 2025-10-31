@@ -35,6 +35,14 @@ def limpiar_datos(df):
         if col in df.columns:
             df= df[(df[col] >= min_val) & (df[col] <= max_val)]
 
+    if "IAC" in df.columns:
+        df["nivel_IAC"] = df["IAC"] * 100
+        df["nivel_IAC"] = df["nivel_IAC"].apply(
+            lambda x: "Zona inactiva" if x < 40
+            else "Zona media" if x <= 70
+            else "Zona activa"
+        )
+
     print ("Datos limpios. Filas finales:", len(df))
     return df
 
@@ -51,3 +59,14 @@ if __name__ == "__main__":
     datos_finales = procesar_dataset(ruta)
     print ("\n Resumen del dataset limpio:")
     print (datos_finales.describe())
+    print ("\nConteo por nivel de IAC:")
+    if "nivel_IAC" in datos_finales.columns:
+        print(datos_finales["nivel_IAC"].value_counts())
+
+print ("\nIndicadores Clave")
+kpi_actividad_promedio = datos_finales["IAC"].mean()
+kpi_ruido_medio = datos_finales["ruido"].mean()
+kpi_variacion_co2 = datos_finales["CO2"].max() - datos_finales["CO2"].min()
+print (f"Promedio de actividad (IAC): {kpi_actividad_promedio:.2f}")
+print (f"Ruido medio: {kpi_ruido_medio:.2f}")
+print (f"Variación del CO2: {kpi_variacion_co2:.2f}")
