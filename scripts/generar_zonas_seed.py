@@ -55,10 +55,21 @@ def km_to_deg_lat(km: float) -> float:
 def km_to_deg_lon(km: float, lat_deg: float) -> float:
     return km / (111.320 * math.cos(math.radians(lat_deg)))
 
-def radial_points(center_lat: float, center_lon: float, n: int, rmin_km: float, rmax_km: float, rng: np.random.Generator):
-    base_angles = np.linspace(0, 2*math.pi, n, endpoint=False)
+def radial_points(center_lat, center_lon, n, rmin_km, rmax_km, rng):
+    base_angles = np.linspace(0, 2*np.pi, n, endpoint=False)
     jitter = rng.normal(loc=0.0, scale=0.12, size=n)
-    angles = (base_angles + jitter) % (2*math.pi)
+    angles = (base_angles + jitter) % (2*np.pi)
+
+    # 👉 limitamos ángulos a semicírculo sur-este (evita mar)
+    valid = []
+    for th in angles:
+        # solo cuadrantes sur (pi/2–3pi/2) y este (0–pi/2)
+        if np.pi/2 <= th <= 3*np.pi/2:
+            valid.append(th)
+        else:
+            valid.append(th + np.pi/2)
+    angles = np.array(valid)
+
     radii = rng.uniform(rmin_km, rmax_km, size=n)
 
     lats, lons = [], []
@@ -68,6 +79,7 @@ def radial_points(center_lat: float, center_lon: float, n: int, rmin_km: float, 
         lats.append(center_lat + dlat)
         lons.append(center_lon + dlon)
     return np.array(lats), np.array(lons)
+
 
 # ---------------------------
 # Generadores de variables

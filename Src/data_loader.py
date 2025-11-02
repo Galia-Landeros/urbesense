@@ -4,25 +4,37 @@ import pandas as pd
 
 REQUIRED = ["zona_id","nombre","lat","lon","co2","ruido","temperatura","seguridad"]
 
-def load_zonas_csv(csv_path: str | Path = "data/zonas.csv") -> pd.DataFrame:
+# límites geográficos seguros en tierra (ajustados con tus datos reales)
+LAT_MIN, LAT_MAX = 19.832, 19.860  # <- empuja fuera del agua
+LON_MIN, LON_MAX = -90.560, -90.510  # <- opcional para recortar demasiado al este/oeste
+
+def load_zonas_csv(csv_path: str | Path = "data/zona.csv") -> pd.DataFrame:
     p = Path(csv_path)
     df = pd.read_csv(p)
+
+    # normaliza headers
     df.columns = [c.strip().lower() for c in df.columns]
 
     missing = [c for c in REQUIRED if c not in df.columns]
     if missing:
         raise ValueError(f"CSV incompleto, faltan: {missing}")
 
-    # tipos seguros
+    # asegurar tipo numérico
     for c in ["lat","lon","co2","ruido","temperatura","seguridad"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # drop filas jodidas
     df = df.dropna(subset=["lat","lon","co2","ruido","temperatura","seguridad"]).copy()
 
-    # (opcional) si quieres limitar a 10 más cercanas al centro de Campeche
-    # from src.config import CENTER
-    # lat0, lon0 = CENTER["lat"], CENTER["lon"]
+    # 👇 CLAMP GEO AQUÍ
+    df["lat"] = df["lat"].clip(LAT_MIN, LAT_MAX)
+    df["lon"] = df["lon"].clip(LON_MIN, LON_MAX)
+
+    # (opcional) si quieres solo 10 más cercanas al centro:
+    # lat0, lon0 = 19.845, -90.535
     # df["d2"] = (df["lat"]-lat0)**2 + (df["lon"]-lon0)**2
     # df = df.sort_values("d2").head(10).drop(columns="d2")
 
     return df.reset_index(drop=True)
+
 
