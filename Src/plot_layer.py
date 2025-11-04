@@ -1,3 +1,4 @@
+# src/plot_layer.py
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -14,65 +15,59 @@ def bubble_map(
     if not isinstance(df, pd.DataFrame):
         raise TypeError("bubble_map espera un pandas.DataFrame")
 
-    # columnas mínimas
     required = {"lat", "lon", "nombre", color_field}
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise KeyError(f"Faltan columnas para el mapa: {missing}")
 
-    # limpiamos filas inválidas
     safe = df.dropna(subset=["lat", "lon", color_field]).copy()
     if safe.empty:
         safe = pd.DataFrame({
-            "lat":    [center[0]],
-            "lon":    [center[1]],
-            "nombre": ["(sin datos)"],
-            color_field: [0.0],
+            "lat":[center[0]], "lon":[center[1]],
+            "nombre":["(sin datos)"], color_field:[0.0]
         })
 
-    # escala de tamaño grande
+    # tamaño grande (30–100 px) según métrica 0–100
     vals = pd.to_numeric(safe[color_field], errors="coerce").fillna(0.0).to_numpy(dtype=float)
-    vals = np.clip(vals, 0, 100)
+    vals = np.clip(vals, 0, 70)
+    size = np.interp(vals, [0, 70], [10, 70])
 
-    size = np.interp(
-        vals,
-        [0, 100],
-        [30, 100]   # más grandes
-    )
-
+    # Opacidad la pasamos directo a px (evita tocar tr.marker a mano)
     fig = px.scatter_mapbox(
         safe.assign(size=size),
-        lat="lat",
-        lon="lon",
+        lat="lat", lon="lon",
         hover_name="nombre",
         hover_data={
-            "iac": ":.1f" if "iac" in safe.columns else False,
-            "impacto": ":.1f" if "impacto" in safe.columns else False,
+            "iac":":.1f" if "iac" in safe.columns else False,
+            "impacto":":.1f" if "impacto" in safe.columns else False,
             "co2": "co2" in safe.columns,
             "ruido": "ruido" in safe.columns,
             "temperatura": "temperatura" in safe.columns,
             "seguridad": "seguridad" in safe.columns,
-            "lat": False,
-            "lon": False,
+            "lat": False, "lon": False
         },
         color=color_field,
         color_continuous_scale=COLOR_SCALE,
-        range_color=(0, 100),
+        range_color=(0,100),
         size="size",
         size_max=120,
         zoom=zoom,
         height=650,
-        custom_data=["nombre"],  # para selección futura
+        custom_data=["nombre"],
+        opacity=opacity,            # 👈 opacidad segura
     )
 
-    # en vez de fig.update_traces(...) global,
-    # aplicamos marker solo a las capas que sí son scattermapbox
-    for tr in fig.data:
-        if getattr(tr, "type", None) == "scattermapbox":
-            tr.marker.opacity = opacity
-            tr.marker.sizemode = "area"
-            # borde negro suave para separar burbujas
-            tr.marker.line = dict(width=1, color="rgba(0,0,0,0.3)")
+    # Intenta aplicar bordes y sizemode solo a scattermapbox; si falla, no rompe
+    try:
+        fig.update_traces(
+            marker=dict(
+                sizemode="area",
+                line=dict(width=1, color="rgba(0,0,0,0.3)")
+            ),
+            selector=dict(type="scattermapbox")
+        )
+    except Exception:
+        pass  # algunos backends de plotly no soportan marker.line en ciertas trazas
 
     fig.update_layout(
         mapbox_style="open-street-map",
@@ -80,7 +75,7 @@ def bubble_map(
         margin=dict(l=0, r=0, t=0, b=0),
         coloraxis_colorbar=dict(title="Impacto"),
     )
-
     return fig
+
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 # Rutas base
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
-DEFAULT_CSV = DATA_DIR / "data_zonas.csv"
+DEFAULT_CSV = DATA_DIR / "zona.csv"
 
 # Esquema esperado del CSV
 EXPECTED_COLUMNS = [

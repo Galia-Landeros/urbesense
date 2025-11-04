@@ -16,8 +16,8 @@ import altair as alt
 
 # Backend imports
 from src.config import DEFAULT_CSV
-from src.data_loader import zona.csv
-from src.plot_layer import plot_layer.py
+from src.data_loader import load_zonas_csv
+from src.plot_layer import bubble_map
 from src.utils import file_signature
 
 def file_signature(path: str | Path):
@@ -341,7 +341,7 @@ with tab1:
         st.markdown("### 🗺️ Actividad por Zona")
         if len(df):
             try:
-                fig = build_map_plotly(df)
+                fig = plot_layer.py(df)
                 st.plotly_chart(fig, use_container_width=True, key="mapa_principal")
             except Exception as e:
                 st.error(f"Error al cargar el mapa: {str(e)}")
@@ -428,7 +428,7 @@ with tab3:
     st.markdown("## 📊 Simulación Avanzada")
     if len(df):
         try:
-            fig = build_map_plotly(df)
+            fig = plot_layer.py(df)
             st.plotly_chart(fig, use_container_width=True, key="mapa_simulacion")
         except Exception as e:
             st.error(f"Error al cargar el mapa de simulación: {str(e)}")

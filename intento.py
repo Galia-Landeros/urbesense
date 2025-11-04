@@ -4,12 +4,44 @@ from src.data_loader import load_zonas_csv
 from src.calculariac import calcular_iac_impacto_df
 from src.plot_layer import bubble_map
 
+# --- Bloque de prueba para medir distancias entre zonas ---
+import numpy as np
+import itertools
+
+KM_PER_DEG_LAT = 110.574
+def _deg_lon_per_km(lat_deg: float) -> float:
+    return 1.0 / (111.320 * np.cos(np.radians(lat_deg)))
+
+def _min_pairwise_m(df):
+    """Calcula la distancia mínima (en metros) entre zonas para verificar separación."""
+    if df.empty or len(df) < 2:
+        return None
+
+    lat0 = float(df["lat"].mean())
+    deg_per_m_lat = 1.0 / (KM_PER_DEG_LAT * 1000.0)
+    deg_per_m_lon = _deg_lon_per_km(lat0) / 1000.0
+
+    mins = []
+    for i, j in itertools.combinations(range(len(df)), 2):
+        dlat_m = (df.iloc[i].lat - df.iloc[j].lat) / deg_per_m_lat
+        dlon_m = (df.iloc[i].lon - df.iloc[j].lon) / deg_per_m_lon
+        mins.append((dlat_m**2 + dlon_m**2) ** 0.5)
+
+    return round(float(np.min(mins)), 1)
+# --- fin del bloque de prueba ---
+
+
+
 st.set_page_config(page_title="UrbeSense • Impacto", layout="wide")
 st.title("UrbeSense • Mapa de Impacto (Simulador por zona)")
 
 # 1) Cargar datos (USA TU RUTA REAL)
 df_raw  = load_zonas_csv("data/zona.csv")  # <-- ojo aquí
 df_calc = calcular_iac_impacto_df(df_raw)  # calcula IAC/Impacto
+
+# Mostrar distancia mínima entre zonas (para verificar repulsión)
+st.write("Distancia mínima entre zonas (m):", _min_pairwise_m(df_calc))
+
 
 # 2) Sidebar: selector de zona + sliders (FORMATO ORIGINAL)
 with st.sidebar:
@@ -58,4 +90,9 @@ st.dataframe(df_raw)
 
 st.write("Rango lat:", float(df_raw["lat"].min()), "→", float(df_raw["lat"].max()))
 st.write("Rango lon:", float(df_raw["lon"].min()), "→", float(df_raw["lon"].max()))
+
+#Verificar cosillas
+st.write("Distancias mínimas (m) entre puntos, antes/después:")
+
+
 
