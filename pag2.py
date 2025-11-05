@@ -15,10 +15,25 @@ import numpy as np
 import altair as alt
 
 # Backend imports
-from src.config import DEFAULT_CSV
-from src.data_loader import load_zonas_csv
+from src.config import SEED_CSV   # o la ruta donde está tu zona.csv
+from src.data_loader import cargar_df, _coerce_numeric
 from src.plot_layer import bubble_map
 from src.utils import file_signature
+
+csv_path = str(SEED_CSV)  # <- ruta absoluta/relativa correcta al zona.csv
+print("csv_path:", csv_path, "| exists?", Path(csv_path).exists())
+
+ZONA_CSV = SEED_CSV / "zona.csv"
+
+df = cargar_df(
+    csv_path=csv_path,
+    iac_umbral=0.35,      # 0–1 o 0–100
+    mode="auto",          # detecta seed/metrics
+    apply_spread=True,
+    min_dist_m=500
+)
+
+fig = bubble_map(df, opacity=0.35)
 
 def file_signature(path: str | Path):
     p = Path(path)
@@ -27,20 +42,48 @@ def file_signature(path: str | Path):
     s = p.stat()
     return (int(s.st_mtime), int(s.st_size))
 
-# Botón manual de refresco 
-if st.sidebar.button("🔄 Actualizar datos"):
-    st.cache_data.clear()
 
-# FUNCIÓN CACHED que DEPENDE de la firma del archivo
-@st.cache_data
-def get_data(csv_path: str, sig):
-    return load_dataset(csv_path)
+@st.cache_data(show_spinner=False)
+def get_data(csv_path: str, sig: str, iac_umbral: float, mode: str, apply_spread: bool, min_dist_m: int):
+    return cargar_df(
+        csv_path=csv_path,
+        iac_umbral=iac_umbral,
+        mode=mode,
+        apply_spread=apply_spread,
+        min_dist_m=min_dist_m
+    )
+
+csv_path = str(SEED_CSV)
+sig = file_signature(csv_path)
+
+df = get_data(
+    csv_path=csv_path,
+    sig=sig,               # sólo para invalidar caché
+    iac_umbral=0.35,
+    mode="auto",
+    apply_spread=True,
+    min_dist_m=500
+)
+
 
 # DEFINE LA RUTA Y LA FIRMA ANTES DE LLAMAR get_data
-csv_path = str(DEFAULT_CSV)
+csv_path = str(SEED_CSV)
 sig = file_signature(csv_path)
+
+from pathlib import Path
+print("csv_path:", csv_path)
+print("abs:", Path(csv_path).resolve())
+print("exists?", Path(csv_path).exists())
+
+
 # CARGA EL DATAFRAME
-df = get_data(csv_path, sig)
+df = cargar_df(
+    csv_path=csv_path,
+    iac_umbral=0.35,     # 0–1 o 0–100
+    mode="auto",         # detecta seed/metrics
+    apply_spread=True,
+    min_dist_m=500
+)
 
 def _coerce_numeric(df, cols):
     d = df.copy()
@@ -283,13 +326,21 @@ tab1, tab2, tab3 = st.tabs(["🏠 Dashboard Principal", "🔍 Análisis de Causa
 # =================== CARGA DE DATOS ===================
 @st.cache_data
 def get_data(path: str) -> pd.DataFrame:
-    df = load_dataset(path)
-    df = _coerce_numeric(df, ["lat","lon","iac","ruido","co2","temperatura"])
+    df = cargar_df(csv_path=path, iac_umbral=0.35, mode="auto")  # ← NUEVA función
+    
+    # Si aún quieres asegurarte de tipos numéricos:
+    try:
+        df = _coerce_numeric(df, ["lat","lon","iac","ruido","co2","temperatura"])
+    except Exception:
+        pass  # no es crítico si _coerce_numeric está encapsulado
+
+    # Normaliza nombre de columna
     if "nombre" not in df.columns and "zona" in df.columns:
-        df = df.rename(columns={"zona":"nombre"})
+        df = df.rename(columns={"zona": "nombre"})
     return df
 
-df = get_data(str(DEFAULT_CSV))
+
+df = get_data(str(SEED_CSV))
 
 # KPIs
 n_zonas = len(df) if len(df) else 0
@@ -341,7 +392,7 @@ with tab1:
         st.markdown("### 🗺️ Actividad por Zona")
         if len(df):
             try:
-                fig = plot_layer.py(df)
+                fig = bubble_map(df)
                 st.plotly_chart(fig, use_container_width=True, key="mapa_principal")
             except Exception as e:
                 st.error(f"Error al cargar el mapa: {str(e)}")
@@ -428,7 +479,7 @@ with tab3:
     st.markdown("## 📊 Simulación Avanzada")
     if len(df):
         try:
-            fig = plot_layer.py(df)
+            fig = bubble_map(df)
             st.plotly_chart(fig, use_container_width=True, key="mapa_simulacion")
         except Exception as e:
             st.error(f"Error al cargar el mapa de simulación: {str(e)}")
