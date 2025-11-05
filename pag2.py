@@ -1,40 +1,42 @@
-# para que 'src' se importe siempre
+# --- SIEMPRE LO PRIMERO ---
+import streamlit as st
+st.set_page_config(layout="wide", page_title="Urbesense", page_icon="🏙️")
+
+#prueba
+# --- Instrumentación anti-mapas duplicados ---
+import builtins
+_rendered = {"map": 0, "where": []}
+
+def render_map(fig, key, where="(desconocido)"):
+    _rendered["map"] += 1
+    _rendered["where"].append(where)
+    st.plotly_chart(fig, use_container_width=True, key=key)
+    # Si alguien más intenta pintar otro mapa, lo frenamos y mostramos dónde ocurrió
+    if _rendered["map"] > 1:
+        st.error(
+            "Se intentó renderizar **más de 1** mapa. Lugares detectados:\n\n"
+            + "\n".join(f"- {w}" for w in _rendered["where"])
+        )
+        st.s
+#fin de prueba
+# --- RUTAS E IMPORTS ---
 import sys
 from pathlib import Path
-from datetime import datetime
-
-# Asegurar que el root del proyecto esté en sys.path
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Imports
-import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
+from datetime import datetime
 
-# Backend imports
-from src.config import SEED_CSV   # o la ruta donde está tu zona.csv
-from src.data_loader import cargar_df, _coerce_numeric
+from src.config import SEED_CSV
+from src.data_loader import cargar_df
 from src.plot_layer import bubble_map
-from src.utils import file_signature
+from src.calculariac import calcular_iac_impacto_df as _recalc
 
-csv_path = str(SEED_CSV)  # <- ruta absoluta/relativa correcta al zona.csv
-print("csv_path:", csv_path, "| exists?", Path(csv_path).exists())
-
-ZONA_CSV = SEED_CSV / "zona.csv"
-
-df = cargar_df(
-    csv_path=csv_path,
-    iac_umbral=0.35,      # 0–1 o 0–100
-    mode="auto",          # detecta seed/metrics
-    apply_spread=True,
-    min_dist_m=500
-)
-
-fig = bubble_map(df, opacity=0.35)
-
+# --- UTILIDAD: firma de carpeta/archivo para caché ---
 def file_signature(path: str | Path):
     p = Path(path)
     if not p.exists():
@@ -42,57 +44,90 @@ def file_signature(path: str | Path):
     s = p.stat()
     return (int(s.st_mtime), int(s.st_size))
 
-
-@st.cache_data(show_spinner=False)
-def get_data(csv_path: str, sig: str, iac_umbral: float, mode: str, apply_spread: bool, min_dist_m: int):
-    return cargar_df(
-        csv_path=csv_path,
-        iac_umbral=iac_umbral,
-        mode=mode,
-        apply_spread=apply_spread,
-        min_dist_m=min_dist_m
-    )
-
+# --- CARGA UNA SOLA VEZ (puedes envolver en @st.cache_data si quieres) ---
 csv_path = str(SEED_CSV)
 sig = file_signature(csv_path)
 
-df = get_data(
+df = cargar_df(
     csv_path=csv_path,
-    sig=sig,               # sólo para invalidar caché
     iac_umbral=0.35,
     mode="auto",
     apply_spread=True,
     min_dist_m=500
 )
 
+# --- NORMALIZA CAMPOS MÍNIMOS ---
+needed = ["nombre","lat","lon","co2","temperatura","ruido"]
+missing = [c for c in needed if c not in df.columns]
+if missing:
+    st.error(f"Faltan columnas para simular: {missing}")
+    st.stop()
 
-# DEFINE LA RUTA Y LA FIRMA ANTES DE LLAMAR get_data
-csv_path = str(SEED_CSV)
-sig = file_signature(csv_path)
+if "seguridad" not in df.columns:
+    df["seguridad"] = 50
 
-from pathlib import Path
-print("csv_path:", csv_path)
-print("abs:", Path(csv_path).resolve())
-print("exists?", Path(csv_path).exists())
+# --- BASE CALCULADA ---
+df_calc = _recalc(df.copy())
 
+# --- ESTADO PERSISTENTE ---
+if "df_sim" not in st.session_state:
+    st.session_state.df_sim = df_calc.copy()
+if "viz_version" not in st.session_state:
+    st.session_state.viz_version = 0
 
-# CARGA EL DATAFRAME
-df = cargar_df(
-    csv_path=csv_path,
-    iac_umbral=0.35,     # 0–1 o 0–100
-    mode="auto",         # detecta seed/metrics
-    apply_spread=True,
-    min_dist_m=500
-)
+# Estado persistente
+if "df_sim" not in st.session_state:
+    st.session_state.df_sim = df_calc.copy()
+if "viz_version" not in st.session_state:
+    st.session_state.viz_version = 0
+# Guard para evitar mapas duplicados en una misma corrida
+st.session_state.map_drawn = False  
 
-def _coerce_numeric(df, cols):
-    d = df.copy()
-    for c in cols:
-        if c in d.columns:
-            d[c] = pd.to_numeric(d[c], errors="coerce")
-    return d
+# --- SIDEBAR ---
+with st.sidebar:
+    st.subheader("Simulador por zona")
+    zonas = st.session_state.df_sim["nombre"].dropna().astype(str).unique().tolist()
+    zonas = sorted(zonas) if len(zonas) else ["(sin datos)"]
+    zona_sel = st.selectbox("Selecciona una zona", zonas, index=0)
 
-st.set_page_config(layout="wide", page_title="Urbesense", page_icon="🏙️")
+    st.markdown("---")
+    st.caption("Ajusta valores para la zona seleccionada:")
+
+    d_co2   = st.slider("Δ CO₂ (ppm)",        -300, 300, 0, 10)
+    d_temp  = st.slider("Δ Temperatura (°C)",  -10,  10, 0, 1)
+    d_ruido = st.slider("Δ Ruido (dB)",        -20,  20, 0, 1)
+    d_seg   = st.slider("Δ Seguridad (pts)",   -30,  30, 0, 1)
+
+    colA, colB = st.columns(2)
+    aplicar = colA.button("Aplicar cambios", use_container_width=True)
+    reset   = colB.button("Reiniciar zona", use_container_width=True)
+
+# --- APLICAR / RESET ---
+df_sim = st.session_state.df_sim.copy()
+mask = (df_sim["nombre"] == zona_sel)
+
+if aplicar:
+    df_sim.loc[mask, "co2"]         = (df_sim.loc[mask, "co2"] + d_co2).clip(300, 2000)
+    df_sim.loc[mask, "temperatura"] = (df_sim.loc[mask, "temperatura"] + d_temp).clip(10, 45)
+    df_sim.loc[mask, "ruido"]       = (df_sim.loc[mask, "ruido"] + d_ruido).clip(30, 110)
+    df_sim.loc[mask, "seguridad"]   = (df_sim.loc[mask, "seguridad"] + d_seg).clip(0, 100)
+
+    df_sim = _recalc(df_sim)  # recalcula iac/impacto
+    st.session_state.df_sim = df_sim
+    st.session_state.viz_version += 1
+    
+
+if reset:
+    base_vals = df_calc.loc[mask, ["co2","temperatura","ruido","seguridad"]]
+    for col in base_vals.columns:
+        df_sim.loc[mask, col] = base_vals[col].values
+    df_sim = _recalc(df_sim)
+    st.session_state.df_sim = df_sim
+    st.session_state.viz_version += 1
+    
+
+# fuerza re-render con una key que cambia
+#st.plotly_chart(fig_map, use_container_width=True, key=f"map_{st.session_state.viz_version}")
 
 # =================== ESTILOS UI (CSS) MEJORADO ===================
 st.markdown("""
@@ -477,15 +512,21 @@ with tab2:
 with tab3:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("## 📊 Simulación Avanzada")
-    if len(df):
+
+    # 👉 DF reactivo
+    df_to_plot = st.session_state.df_sim if "df_sim" in st.session_state else df_calc
+
+    if len(df_to_plot):
         try:
-            fig = bubble_map(df)
-            st.plotly_chart(fig, use_container_width=True, key="mapa_simulacion")
+            fig = bubble_map(df_to_plot, color_field="impacto", opacity=0.45)
+            st.plotly_chart(fig, use_container_width=True,
+                            key=f"mapa_sim_{st.session_state.viz_version}")  # 👉 key cambia
         except Exception as e:
             st.error(f"Error al cargar el mapa de simulación: {str(e)}")
     else:
         st.info("No hay datos para mostrar en el mapa.")
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 # =================== FOOTER ===================
 st.markdown("""

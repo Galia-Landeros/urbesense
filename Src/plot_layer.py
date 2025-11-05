@@ -29,8 +29,8 @@ def bubble_map(
 
     # tamaño grande (30–100 px) según métrica 0–100
     vals = pd.to_numeric(safe[color_field], errors="coerce").fillna(0.0).to_numpy(dtype=float)
-    vals = np.clip(vals, 0, 70)
-    size = np.interp(vals, [0, 70], [10, 70])
+    vals = np.clip(vals, 0, 100)
+    size = np.interp(vals, [0, 100], [10, 70])
 
     # Opacidad la pasamos directo a px (evita tocar tr.marker a mano)
     fig = px.scatter_mapbox(
