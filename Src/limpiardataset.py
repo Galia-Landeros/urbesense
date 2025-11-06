@@ -79,10 +79,8 @@ def abrir_pdf_por_zona(df):
         print (f"No se encontró el pdf para {nivel_predominante}")
 
 
-
-
 if __name__ == "__main__":
-    ruta= "data/dataset.csv"
+    ruta= "data/zona.csv"
     datos_finales = procesar_dataset(ruta)
     print ("\n Resumen del dataset limpio:")
     print (datos_finales.describe())
